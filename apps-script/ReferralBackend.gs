@@ -1,3 +1,33 @@
+/** WV WIC Connect referral intake, spreadsheet-bound Apps Script. */
+const REFERRAL_TAB='WIC Referrals';
+const HEADERS=['Received At','Referral ID','Organization','Staff Contact','Caregiver Name','Phone','Email','County','Preferred Contact','Referral Reasons','Notes','Consent Confirmed','Status','Assigned To','Follow-up Date','Outcome'];
+function setupReferralSheet(){
+ const ss=SpreadsheetApp.getActiveSpreadsheet();
+ if(!ss)throw new Error('Bind script to destination spreadsheet');
+ const sh=ss.getSheetByName(REFERRAL_TAB)||ss.insertSheet(REFERRAL_TAB);
+ if(sh.getLastRow()===0){sh.appendRow(HEADERS);sh.setFrozenRows(1);sh.getRange(1,1,1,HEADERS.length).setFontWeight('bold').setBackground('#00657f').setFontColor('#ffffff');}
+}
+function validateReferral_(p){
+ for(const f of ['organization','family','phone','county'])if(!String(p[f]||'').trim())throw new Error('Missing '+f);
+ if(p.consent!==true&&p.consent!=='true')throw new Error('Consent required');
+ if(String(p.family).length>150||String(p.phone).length>40||String(p.notes||'').length>1000)throw new Error('Field too long');
+ if(p.email&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(p.email)))throw new Error('Invalid email');
+}
+function safeCell_(v){
+ const s=String(v==null?'':v).trim();
+ return /^[=+@\\-\\t\\r]/.test(s)?"'"+s:s;
+}
+function recordReferral_(p){
+ validateReferral_(p);
+ const lock=LockService.getScriptLock();lock.waitLock(10000);
+ try{
+  const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(REFERRAL_TAB);
+  if(!sh)throw new Error('Run setupReferralSheet');
+  const id=Utilities.getUuid();
+  sh.appendRow([new Date(),id,safeCell_(p.organization),safeCell_(p.staff),safeCell_(p.family),safeCell_(p.phone),safeCell_(p.email),safeCell_(p.county),safeCell_(p.contact),safeCell_(Array.isArray(p.reasons)?p.reasons.join('; '):''),safeCell_(p.notes),'Yes','New','','','']);
+  return {ok:true,referralId:id};
+ }finally{lock.releaseLock();}
+}
 /**
  * No-sign-in submission endpoint.
  * Only accepts POST; the browser receives a confirmation page.
