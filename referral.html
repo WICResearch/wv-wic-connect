@@ -34,7 +34,7 @@ form.addEventListener("submit",()=>{
   help.textContent="Submitting securely. Please keep this page open until the confirmation appears.";
   responseTimeout=setTimeout(()=>{
     if(!pendingSubmissionId)return;
-    showReferralStatus("error","Confirmation not received","We could not verify whether the referral was recorded. Check with WV WIC staff or the authorized tracking spreadsheet before submitting again.");
+    showReferralStatus("error","Confirmation could not be displayed","Your referral may already have been received. Do not submit it again. Please contact WV WIC at 304-558-0030 to verify the referral was recorded.");
     help.textContent="Do not submit the same referral again until its status is checked.";
     finishSubmission();
   },45000);
@@ -42,9 +42,13 @@ form.addEventListener("submit",()=>{
 window.addEventListener("message",event=>{
   if(!pendingSubmissionId||event.source!==responseFrame.contentWindow)return;
   let origin;
-  try{origin=new URL(event.origin)}catch{return}
-  const host=origin.hostname.toLowerCase();
-  if(origin.protocol!=="https:"||!(host==="script.google.com"||host==="googleusercontent.com"||host.endsWith(".googleusercontent.com")))return;
+  if(event.origin!=="null"){
+    try{origin=new URL(event.origin)}catch{return}
+    const host=origin.hostname.toLowerCase();
+    if(origin.protocol!=="https:"||!(host==="script.google.com"||host==="googleusercontent.com"||host.endsWith(".googleusercontent.com")))return;
+  }
+  // Google Apps Script may run its response in a sandboxed iframe with an opaque ("null") origin.
+  // For that case, require the exact iframe window and unpredictable matching submission ID.
   const data=event.data;
   if(!data||typeof data!=="object"||data.type!=="WV_WIC_REFERRAL_RESULT"||data.submissionId!==pendingSubmissionId)return;
   if(data.success===true&&typeof data.referralId==="string"&&/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(data.referralId)){
