@@ -40,7 +40,10 @@ form.addEventListener("submit",()=>{
   },45000);
 });
 window.addEventListener("message",event=>{
-  if(!pendingSubmissionId||event.source!==responseFrame.contentWindow)return;
+  if(!pendingSubmissionId)return;
+  // Apps Script HTML Service can nest its response inside a Google sandbox iframe.
+  // The message source can therefore differ from the outer form target frame.
+  // Require the exact per-submission unpredictable token and a Google origin (or sandboxed null origin).
   let origin;
   if(event.origin!=="null"){
     try{origin=new URL(event.origin)}catch{return}
@@ -48,7 +51,7 @@ window.addEventListener("message",event=>{
     if(origin.protocol!=="https:"||!(host==="script.google.com"||host==="googleusercontent.com"||host.endsWith(".googleusercontent.com")))return;
   }
   // Google Apps Script may run its response in a sandboxed iframe with an opaque ("null") origin.
-  // For that case, require the exact iframe window and unpredictable matching submission ID.
+  // For that case, require the unpredictable matching submission ID.
   const data=event.data;
   if(!data||typeof data!=="object"||data.type!=="WV_WIC_REFERRAL_RESULT"||data.submissionId!==pendingSubmissionId)return;
   if(data.success===true&&typeof data.referralId==="string"&&/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(data.referralId)){
